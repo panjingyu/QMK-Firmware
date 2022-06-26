@@ -49,7 +49,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 */
     [0] = LAYOUT(
-        KC_UNDO, KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,  KC_AGIN,          KC_MUTE,
+        KC_ESC,  KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,  KC_PSCR,          KC_MUTE,
         KC_GRV,  KC_1,    KC_2,    KC_3,    KC_4,    KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0,    KC_MINS, KC_EQL,  KC_BSLS,          KC_PGUP,
         KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_LBRC, KC_RBRC, KC_BSPC,          KC_PGDN,
  LCTL_T(KC_ESC), KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,          KC_ENT,           KC_HOME,
@@ -58,11 +58,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 
     [1] = LAYOUT(
-        QK_BOOT, KC_MPRV, KC_MNXT, KC_MPLY, KC_MSTP, _______, _______, _______, _______, _______, _______, _______, _______, _______,          _______,
-        RGB_TOG, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,          _______,
+        _______, KC_MPRV, KC_MNXT, KC_MPLY, KC_MSTP, _______, _______, _______, _______, _______, _______, _______, _______, QK_BOOT,          _______,
+        RGB_TOG, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, KC_DEL ,          KC_INS ,
         _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,          _______,
-        _______, KC_VOLD, KC_VOLU, RGB_VAD, RGB_VAI, _______, _______, _______, _______, _______, _______, _______,          _______,          _______,
-        _______,          RGB_HUD, RGB_HUI, _______, _______, _______, NK_TOGG, _______, _______, _______, _______,          _______, RGB_MOD, _______,
+        _______, KC_VOLD, KC_VOLU, KC_BRMD, KC_BRMU, _______, _______, _______, _______, _______, _______, _______,          _______,          _______,
+        _______,          RGB_HUI, RGB_SAI, RGB_VAI, _______, _______, NK_TOGG, _______, _______, _______, _______,          _______, RGB_MOD, _______,
         _______, _______, _______,                            _______,                            _______, _______, _______, RGB_SPD, RGB_RMOD, RGB_SPI
     ),
 
@@ -73,10 +73,194 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 #ifdef ENCODER_ENABLE
 bool encoder_update_user(uint8_t index, bool clockwise) {
     if (clockwise) {
-      tap_code(KC_VOLU);
+        tap_code(KC_VOLU);
     } else {
-      tap_code(KC_VOLD);
+        tap_code(KC_VOLD);
     }
     return false;
 }
 #endif // ENCODER_ENABLE
+
+#ifdef RGB_MATRIX_ENABLE
+
+    // Called on powerup and is the last _init that is run.
+    void keyboard_post_init_user(void) {
+
+        int mods[35] = {0,2,3,4,5,11,17,33,49,55,65,95,97,79,94,85,93,96,90,69,92,67,76,80,91,75,86,68,77,81,92,28,34,39,44};
+        int j;
+
+        /* output each array element's value */
+        for (j = 0; j < 35; j++ ) {
+            g_led_config.flags[mods[j]] = LED_FLAG_MODIFIER;
+        }
+
+        if (!rgb_matrix_is_enabled()) {
+            rgb_matrix_enable();
+            #ifdef CONSOLE_ENABLE
+            uprintf("ERROR! RGB Matrix Enabled and wrote to EEPROM! -How was the RGB Matrix Disabled?");
+            #endif
+        }
+    }
+
+    /* Renaming those to make the purpose on this keymap clearer */
+    #define LED_FLAG_CAPS LED_FLAG_NONE
+    #define LED_FLAG_EFFECTS LED_FLAG_INDICATOR
+
+    #if RGB_CONFIRMATION_BLINKING_TIME > 0
+        static uint16_t effect_started_time = 0;
+        static uint8_t r_effect = 0x0, g_effect = 0x0, b_effect = 0x0;
+        static void start_effects(void);
+
+        /* The higher this is, the slower the blinking will be */
+        #ifndef TIME_SELECTED_BIT
+            #define TIME_SELECTED_BIT 8
+        #endif
+        #if TIME_SELECTED_BIT < 0 || TIME_SELECTED_BIT >= 16
+            #error "TIME_SELECTED_BIT must be a positive integer smaller than 16"
+        #endif
+        #define effect_red() r_effect = 0xFF, g_effect = 0x0, b_effect = 0x0
+        #define effect_green() r_effect = 0x0, g_effect = 0xFF, b_effect = 0x0
+    #endif // RGB_CONFIRMATION_BLINKING_TIME > 0
+
+    bool led_update_user(led_t led_state) {
+        if (led_state.caps_lock) {
+            if (!rgb_matrix_is_enabled()) {
+                /* Turn ON the RGB Matrix for CAPS LOCK */
+                rgb_matrix_set_flags(LED_FLAG_CAPS);
+                rgb_matrix_enable();
+            }
+        } else if (rgb_matrix_get_flags() == LED_FLAG_CAPS) {
+            /* RGB Matrix was only ON because of CAPS LOCK. Turn it OFF. */
+            rgb_matrix_set_flags(LED_FLAG_ALL);
+            rgb_matrix_disable();
+        }
+        return true;
+    }
+
+    bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+        switch (keycode) {
+            #ifdef NKRO_ENABLE
+                #if RGB_CONFIRMATION_BLINKING_TIME > 0
+                    case NK_TOGG:
+                        if (record->event.pressed) {
+                            if (keymap_config.nkro) {
+                                /* Turning NKRO OFF */
+                                effect_red();
+                            } else {
+                                /* Turning NKRO ON */
+                                effect_green();
+                            }
+                            start_effects();
+                        }
+                    break;
+                #endif // RGB_CONFIRMATION_BLINKING_TIME > 0
+            #endif // NKRO_ENABLE
+
+        case RGB_SPD:
+            if (record->event.pressed) {
+                if (rgb_matrix_get_flags() != LED_FLAG_ALL) {
+                    /* Ignore changes to RGB settings while only it's supposed to be OFF */
+                    return false;
+                }
+            }
+        break;
+
+      case RGB_TOG:
+        // if (record->event.pressed) {
+        //     if (rgb_matrix_get_flags() == LED_FLAG_ALL) {
+        //         rgb_matrix_set_flags(LED_FLAG_NONE);
+        //         rgb_matrix_set_color_all(0, 0, 0);
+        //     } else {
+        //         rgb_matrix_set_flags(LED_FLAG_ALL);
+        //     }
+        // }
+        // return false;
+        if (record->event.pressed) {
+          if (rgb_matrix_is_enabled()) {
+            switch (rgb_matrix_get_flags()) {
+              #if RGB_CONFIRMATION_BLINKING_TIME > 0
+              case LED_FLAG_EFFECTS:
+              #endif
+              case LED_FLAG_CAPS:
+                /* Turned ON because of EFFECTS or CAPS, is actually OFF */
+                /* Change to LED_FLAG_ALL to signal it's really ON */
+                rgb_matrix_set_flags(LED_FLAG_ALL);
+                /* Will be re-enabled by the processing of the toggle */
+                rgb_matrix_disable_noeeprom();
+                break;
+              case LED_FLAG_ALL:
+                /* Is actually ON */
+                #if RGB_CONFIRMATION_BLINKING_TIME > 0
+                if (effect_started_time > 0) {
+                  /* Signal EFFECTS */
+                  rgb_matrix_set_flags(LED_FLAG_EFFECTS);
+                  /* Will be re-enabled by the processing of the toggle */
+                  rgb_matrix_disable_noeeprom();
+                } else
+                #endif
+                if (host_keyboard_led_state().caps_lock) {
+                  /* Signal CAPS */
+                  rgb_matrix_set_flags(LED_FLAG_CAPS);
+                  /* Will be re-enabled by the processing of the toggle */
+                  rgb_matrix_disable_noeeprom();
+                }
+                break;
+            }
+          }
+        }
+        break;
+
+    }
+    return true;
+  }
+
+
+    void rgb_matrix_indicators_user() {
+        #if RGB_CONFIRMATION_BLINKING_TIME > 0
+            if (effect_started_time > 0) {
+                /* Render blinking EFFECTS */
+                uint16_t deltaTime = sync_timer_elapsed(effect_started_time);
+                if (deltaTime <= RGB_CONFIRMATION_BLINKING_TIME) {
+                    uint8_t led_state = ((~deltaTime) >> TIME_SELECTED_BIT) & 0x01;
+                    uint8_t val_r = led_state * r_effect;
+                    uint8_t val_g = led_state * g_effect;
+                    uint8_t val_b = led_state * b_effect;
+                    rgb_matrix_set_color_all(val_r, val_g, val_b);
+                    return;
+                } else {
+                    /* EFFECTS duration is finished */
+                    effect_started_time = 0;
+                    if (rgb_matrix_get_flags() == LED_FLAG_EFFECTS) {
+                        /* It was turned ON because of EFFECTS */
+                        if (host_keyboard_led_state().caps_lock) {
+                            /* CAPS is still ON. Demote to CAPS */
+                            rgb_matrix_set_flags(LED_FLAG_CAPS);
+                        } else {
+                            /* There is nothing else keeping RGB enabled. Reset flags and turn if off. */
+                            rgb_matrix_set_flags(LED_FLAG_ALL);
+                            rgb_matrix_disable_noeeprom();
+                        }
+                    }
+                }
+            }
+        #endif // RGB_CONFIRMATION_BLINKING_TIME > 0
+        if (rgb_matrix_get_flags() == LED_FLAG_CAPS) {
+            rgb_matrix_set_color_all(0x0, 0x0, 0x0);
+        }
+    }
+
+  #if RGB_CONFIRMATION_BLINKING_TIME > 0
+  static void start_effects() {
+    effect_started_time = sync_timer_read();
+    if (!rgb_matrix_is_enabled()) {
+      /* Turn it ON, signal the cause (EFFECTS) */
+      rgb_matrix_set_flags(LED_FLAG_EFFECTS);
+      rgb_matrix_enable_noeeprom();
+    } else if (rgb_matrix_get_flags() == LED_FLAG_CAPS) {
+      /* It's already ON, promote the cause from CAPS to EFFECTS */
+      rgb_matrix_set_flags(LED_FLAG_EFFECTS);
+    }
+  }
+  #endif // RGB_CONFIRMATION_BLINKING_TIME > 0
+
+#endif // RGB_MATRIX_ENABLE
