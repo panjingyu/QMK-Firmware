@@ -215,7 +215,7 @@ bool encoder_update_user(uint8_t index, bool clockwise) {
   }
 
 
-    void rgb_matrix_indicators_user() {
+    bool rgb_matrix_indicators_user() {
         #if RGB_CONFIRMATION_BLINKING_TIME > 0
             if (effect_started_time > 0) {
                 /* Render blinking EFFECTS */
@@ -247,6 +247,7 @@ bool encoder_update_user(uint8_t index, bool clockwise) {
         if (rgb_matrix_get_flags() == LED_FLAG_CAPS) {
             rgb_matrix_set_color_all(0x0, 0x0, 0x0);
         }
+        return false;
     }
 
   #if RGB_CONFIRMATION_BLINKING_TIME > 0
